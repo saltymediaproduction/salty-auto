@@ -27,6 +27,7 @@ interface Contact {
 
 export default function CRMPage() {
   const [activeStage, setActiveStage] = useState<string>("all");
+  const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "whatsapp">("all");
   const [search, setSearch] = useState("");
 
   const [contacts] = useState<Contact[]>([
@@ -78,11 +79,12 @@ export default function CRMPage() {
 
   const filteredContacts = contacts.filter((c) => {
     const matchesStage = activeStage === "all" || c.stage === activeStage;
+    const matchesPlatform = platformFilter === "all" || c.platform === platformFilter;
     const matchesSearch =
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       (c.instagram_username && c.instagram_username.toLowerCase().includes(search.toLowerCase())) ||
       (c.whatsapp_phone && c.whatsapp_phone.includes(search));
-    return matchesStage && matchesSearch;
+    return matchesStage && matchesPlatform && matchesSearch;
   });
 
   return (
@@ -129,8 +131,8 @@ export default function CRMPage() {
         ))}
       </div>
 
-      {/* Search and filter bar */}
-      <div className="flex items-center gap-3">
+      {/* Search and channel filter bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -140,6 +142,36 @@ export default function CRMPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
           />
+        </div>
+
+        {/* Platform Channel Switcher */}
+        <div className="flex p-1 bg-slate-900/90 border border-slate-800 rounded-xl shrink-0 text-xs">
+          <button
+            onClick={() => setPlatformFilter("all")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              platformFilter === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            All Channels
+          </button>
+          <button
+            onClick={() => setPlatformFilter("instagram")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              platformFilter === "instagram" ? "bg-pink-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Instagram className="w-3.5 h-3.5" />
+            Instagram
+          </button>
+          <button
+            onClick={() => setPlatformFilter("whatsapp")}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              platformFilter === "whatsapp" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Phone className="w-3.5 h-3.5" />
+            WhatsApp
+          </button>
         </div>
       </div>
 

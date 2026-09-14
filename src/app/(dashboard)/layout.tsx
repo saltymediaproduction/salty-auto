@@ -7,7 +7,8 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase/client";
 import {
   Sparkles,
-  Zap,
+  Instagram,
+  MessageCircle,
   Users,
   Share2,
   ShieldCheck,
@@ -48,21 +49,30 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      name: "Automations",
-      href: "/",
-      icon: Zap,
-      badge: "Active",
-      exact: true,
+      name: "Instagram Suite",
+      href: "/instagram",
+      icon: Instagram,
+      badge: "OpenReply",
+      isActive: pathname === "/" || pathname.startsWith("/instagram"),
     },
     {
-      name: "Social CRM",
+      name: "WhatsApp Suite",
+      href: "/whatsapp",
+      icon: MessageCircle,
+      badge: "Cloud API",
+      isActive: pathname.startsWith("/whatsapp"),
+    },
+    {
+      name: "Unified Social CRM",
       href: "/crm",
       icon: Users,
+      isActive: pathname.startsWith("/crm"),
     },
     {
       name: "Connected Accounts",
       href: "/accounts",
       icon: Share2,
+      isActive: pathname.startsWith("/accounts"),
     },
   ];
 
@@ -93,9 +103,7 @@ export default function DashboardLayout({
             </div>
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = item.exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href);
+              const isActive = item.isActive;
 
               return (
                 <Link
@@ -108,11 +116,27 @@ export default function DashboardLayout({
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                    <Icon
+                      className={`w-4 h-4 ${
+                        isActive
+                          ? "text-white"
+                          : item.name.includes("Instagram")
+                          ? "text-pink-400"
+                          : item.name.includes("WhatsApp")
+                          ? "text-emerald-400"
+                          : "text-slate-400"
+                      }`}
+                    />
                     <span>{item.name}</span>
                   </div>
                   {item.badge && (
-                    <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <span
+                      className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${
+                        item.name.includes("Instagram")
+                          ? "bg-pink-500/20 text-pink-300 border border-pink-500/30"
+                          : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}
