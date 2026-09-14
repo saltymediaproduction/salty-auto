@@ -63,6 +63,15 @@ This document tracks all active, queued, and completed tasks for the `salty-auto
 - [x] 🟢 **Task 9.3**: Verified `.gitignore` prevents leaks of `.env`, `.env*.local`, `.next/`, and `node_modules/`.
 - [x] 🟢 **Task 9.4**: Configured GitHub author identity (`Salty Media` / `189105901+saltymediaproduction@users.noreply.github.com`).
 - [x] 🟢 **Task 9.5**: Linked remote `https://github.com/saltymediaproduction/salty-auto.git` and successfully pushed `main` branch to origin.
+- [x] 🟢 **Task 9.6**: Built live Meta Social Account management API (`/api/accounts`, `/api/accounts/test-whatsapp`) with Supabase persistence and an interactive live WhatsApp Cloud API dispatcher in the UI.
+
+### Phase 10: OpenReply-Grade Feature Integration (Next.js Serverless + Zero-Cost)
+- [x] 🟢 **Task 10.1**: Built Multi-Script Keyword Matcher ([src/lib/utils/keyword-matcher.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/lib/utils/keyword-matcher.ts)) with Unicode word boundaries, Latin diacritic folding (`PREÇO` -> `preco`), Arabic/Persian canonicalization, and homoglyph normalization (`O8` -> `08`). Verified with 8 automated unit tests.
+- [x] 🟢 **Task 10.2**: Created Dynamic Tracked Link Engine ([src/lib/tracking/client.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/lib/tracking/client.ts)) and High-Speed Redirect Route ([src/app/r/[slug]/route.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/app/r/[slug]/route.ts)) with async click logging and middleware bypass.
+- [x] 🟢 **Task 10.3**: Extended Meta Graph API Client ([src/lib/meta/instagram.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/lib/meta/instagram.ts)) with interactive Button Template dispatch (`sendInstagramButtonTemplate`), direct DMs (`sendInstagramDirectDM`), and follow-gate verification (`checkUserFollowsBusiness`).
+- [x] 🟢 **Task 10.4**: Upgraded Webhook Ingestion ([src/app/api/webhooks/meta/route.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/app/api/webhooks/meta/route.ts)) to parse `entry.messaging` (postbacks & inbound DMs/story replies) and `changes` on `media` creation.
+- [x] 🟢 **Task 10.5**: Upgraded `handleInstagramComment` and added `handleInstagramPostback` (Follow-Gate verification & reveal delivery) and `handleInstagramMedia` ("Attach to Next Reel") in Inngest pipeline with 750/hr account throttling.
+- [x] 🟢 **Task 10.6**: Upgraded Campaign Builder UI ([src/app/(dashboard)/page.tsx](file:///Users/trishul/Documents/salty-new/salty-auto/src/app/%28dashboard%29/page.tsx)) with Button Template builder, Follow-Gate toggle, and a real-time interactive Smartphone DM Preview. Verified with clean `npm run build`.
 
 ---
 
@@ -83,3 +92,4 @@ This document tracks all active, queued, and completed tasks for the `salty-auto
 | 2026-09-14 | 8.1-8.3 | Integrated Resend Email Service | Configured Resend with `"Salty Media" <team@saltymediaproduction.com>`, built welcome and lead alert email templates in `src/lib/resend/client.ts`, and connected to user registration. |
 | 2026-09-14 | 8.4 | Synchronized Ecosystem Environment Variables | Aligned `.env.example` and `.env` across `salty-auto`, `salty-backend`, and `salty-frontend` (Ecosystem URLs, internal API secrets, and Cloudinary media assets). |
 | 2026-09-14 | 9.1-9.5 | GitHub Repository Setup & Initial Push | Initialized git repository in `salty-auto`, added README and docs, staged clean codebase without secrets, and pushed to `https://github.com/saltymediaproduction/salty-auto.git`. |
+| 2026-09-14 | 10.1-10.6 | OpenReply-Grade Features Integration | Multi-script & diacritic keyword matcher, Meta Button Templates, Follow-Gate verification, Tracked Link Shortener (`/r/[slug]`), Next Reel auto-binding, and live Smartphone preview in dashboard. Compiled 13/13 routes cleanly. |

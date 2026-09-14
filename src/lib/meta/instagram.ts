@@ -111,3 +111,186 @@ export async function sendInstagramPrivateDM(
     };
   }
 }
+
+export type InstagramButton =
+  | { type: "web_url"; url: string; title: string }
+  | { type: "postback"; title: string; payload: string };
+
+/**
+ * Sends an interactive Button Template DM via Meta Graph API.
+ * Supports up to 3 buttons (web_url or postback).
+ * Meta restricts button template text to 640 characters and titles to 20 characters.
+ */
+export async function sendInstagramButtonTemplate({
+  instagramAccountId,
+  recipient,
+  messageText,
+  buttons,
+  accessToken,
+}: {
+  instagramAccountId: string;
+  recipient: { comment_id: string } | { id: string };
+  messageText: string;
+  buttons: InstagramButton[];
+  accessToken: string;
+}): Promise<InstagramApiResponse<{ recipient_id: string; message_id: string }>> {
+  const url = `${GRAPH_API_BASE}/${GRAPH_VERSION}/${instagramAccountId}/messages`;
+
+  const formattedButtons = buttons.slice(0, 3).map((btn) => {
+    if (btn.type === "web_url") {
+      return {
+        type: "web_url",
+        url: btn.url,
+        title: btn.title.slice(0, 20),
+      };
+    }
+    return {
+      type: "postback",
+      title: btn.title.slice(0, 20),
+      payload: btn.payload,
+    };
+  });
+
+  const payload = {
+    recipient,
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: messageText.slice(0, 640),
+          buttons: formattedButtons,
+        },
+      },
+    },
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("[Instagram API] Button template error:", data);
+      return {
+        success: false,
+        error: data.error?.message || "Failed to send button template",
+        statusCode: res.status,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        recipient_id: data.recipient_id,
+        message_id: data.message_id,
+      },
+      statusCode: res.status,
+    };
+  } catch (err) {
+    console.error("[Instagram API] Button template network error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+}
+
+/**
+ * Sends a Direct Message to a user by their Instagram Scoped ID (IGSID).
+ * Used for follow-up responses and follow-gate reveal messages within the 24-hour window.
+ */
+export async function sendInstagramDirectDM(
+  instagramAccountId: string,
+  recipientIgsid: string,
+  messageText: string,
+  accessToken: string
+): Promise<InstagramApiResponse<{ recipient_id: string; message_id: string }>> {
+  const url = `${GRAPH_API_BASE}/${GRAPH_VERSION}/${instagramAccountId}/messages`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: { text: messageText },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("[Instagram API] Direct DM error:", data);
+      return {
+        success: false,
+        error: data.error?.message || "Failed to send direct DM",
+        statusCode: res.status,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        recipient_id: data.recipient_id,
+        message_id: data.message_id,
+      },
+      statusCode: res.status,
+    };
+  } catch (err) {
+    console.error("[Instagram API] Direct DM network error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+}
+
+/**
+ * Checks whether an Instagram user follows the business account.
+ * Queries Meta Graph API: GET /{recipient_igsid}?fields=is_user_follow_business
+ * 
+ * Returns:
+ * - true if user is confirmed following
+ * - false if user is confirmed not following
+ * - null if status cannot be determined (privacy/unsupported), allowing callers to fail-open.
+ */
+export async function checkUserFollowsBusiness(
+  recipientIgsid: string,
+  accessToken: string
+): Promise<boolean | null> {
+  const url = `${GRAPH_API_BASE}/${GRAPH_VERSION}/${recipientIgsid}?fields=is_user_follow_business`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    if (typeof data?.is_user_follow_business === "boolean") {
+      return data.is_user_follow_business;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+

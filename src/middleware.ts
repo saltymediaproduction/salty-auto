@@ -9,6 +9,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/inngest") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth") ||
+    pathname.startsWith("/r/") ||
     pathname.startsWith("/_next") ||
     pathname.includes(".") // Static assets (favicon, images, etc.)
   ) {

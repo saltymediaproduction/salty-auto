@@ -13,6 +13,33 @@ export type Events = {
       timestamp: number;
     };
   };
+  "meta/instagram.postback": {
+    data: {
+      accountId: string;
+      senderId: string;
+      payload: string;
+      title?: string;
+      timestamp: number;
+    };
+  };
+  "meta/instagram.dm": {
+    data: {
+      accountId: string;
+      senderId: string;
+      messageId: string;
+      text: string;
+      isStoryReply?: boolean;
+      timestamp: number;
+    };
+  };
+  "meta/instagram.media": {
+    data: {
+      accountId: string;
+      mediaId: string;
+      mediaType?: string;
+      timestamp: number;
+    };
+  };
   "meta/whatsapp.message": {
     data: {
       phoneNumberId: string;

@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       for (const entry of payload.entry || []) {
         const accountId = entry.id; // Instagram Business Account ID
 
+        // 2a. Changes array (Comments and Media publication events)
         for (const change of entry.changes || []) {
           // Instagram Comment Event
           if (change.field === "comments" && change.value) {
@@ -70,6 +71,59 @@ export async function POST(req: NextRequest) {
                 fromUsername: val.from?.username || "anonymous",
                 text: val.text || "",
                 timestamp: val.created_time ? Number(val.created_time) * 1000 : Date.now(),
+              },
+            });
+          }
+
+          // Instagram New Media Published (for 'Attach to Next Reel' workflows)
+          if (change.field === "media" && change.value) {
+            const val = change.value;
+            await inngest.send({
+              name: "meta/instagram.media",
+              data: {
+                accountId,
+                mediaId: val.id || val.media_id || "unknown",
+                mediaType: val.media_type || "reel",
+                timestamp: Date.now(),
+              },
+            });
+          }
+        }
+
+        // 2b. Messaging array (Button Postbacks & Inbound DMs / Story Replies)
+        for (const msgItem of entry.messaging || []) {
+          const senderId = msgItem.sender?.id;
+
+          // Ignore echoes sent by the business account itself
+          if (senderId === accountId || msgItem.message?.is_echo) {
+            continue;
+          }
+
+          // Button Template Postback (e.g. "I'm Following" button click)
+          if (msgItem.postback) {
+            await inngest.send({
+              name: "meta/instagram.postback",
+              data: {
+                accountId,
+                senderId,
+                payload: msgItem.postback.payload || "",
+                title: msgItem.postback.title || "",
+                timestamp: msgItem.timestamp ? Number(msgItem.timestamp) : Date.now(),
+              },
+            });
+          }
+
+          // Inbound Direct Message or Story Reply
+          if (msgItem.message && msgItem.message.text) {
+            await inngest.send({
+              name: "meta/instagram.dm",
+              data: {
+                accountId,
+                senderId,
+                messageId: msgItem.message.mid,
+                text: msgItem.message.text,
+                isStoryReply: !!msgItem.message.reply_to?.story,
+                timestamp: msgItem.timestamp ? Number(msgItem.timestamp) : Date.now(),
               },
             });
           }
