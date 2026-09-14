@@ -72,6 +72,7 @@ This document tracks all active, queued, and completed tasks for the `salty-auto
 - [x] 🟢 **Task 10.4**: Upgraded Webhook Ingestion ([src/app/api/webhooks/meta/route.ts](file:///Users/trishul/Documents/salty-new/salty-auto/src/app/api/webhooks/meta/route.ts)) to parse `entry.messaging` (postbacks & inbound DMs/story replies) and `changes` on `media` creation.
 - [x] 🟢 **Task 10.5**: Upgraded `handleInstagramComment` and added `handleInstagramPostback` (Follow-Gate verification & reveal delivery) and `handleInstagramMedia` ("Attach to Next Reel") in Inngest pipeline with 750/hr account throttling.
 - [x] 🟢 **Task 10.6**: Upgraded Campaign Builder UI ([src/app/(dashboard)/page.tsx](file:///Users/trishul/Documents/salty-new/salty-auto/src/app/%28dashboard%29/page.tsx)) with Button Template builder, Follow-Gate toggle, and a real-time interactive Smartphone DM Preview. Verified with clean `npm run build`.
+- [x] 🟢 **Task 10.7**: Separated dashboard into dedicated **Instagram Suite** (`/instagram`) and **WhatsApp Suite** (`/whatsapp`) with tailored mobile chat previews, live Meta Cloud API dispatcher, platform-specific badges, and CRM channel filter tabs (`All`, `Instagram`, `WhatsApp`). Compiled 15/15 routes cleanly.
 
 ---
 
