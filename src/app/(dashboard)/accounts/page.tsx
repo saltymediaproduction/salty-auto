@@ -5,19 +5,17 @@ import {
   Share2,
   Instagram,
   MessageCircle,
-  ShieldCheck,
   Copy,
   Check,
   Key,
   ExternalLink,
-  Plus,
   Trash2,
   Send,
   Loader2,
   AlertCircle,
-  HelpCircle,
   Smartphone,
-  Info,
+  Globe,
+  Radio,
 } from "lucide-react";
 
 interface SocialAccount {
@@ -34,21 +32,27 @@ export default function AccountsPage() {
   const [loading, setLoading] = useState(true);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
 
-  // Modal states
-  const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<"whatsapp" | "instagram">("whatsapp");
+  // 1. Separate Instagram Modal & Form State
+  const [instagramModalOpen, setInstagramModalOpen] = useState(false);
+  const [igUsername, setIgUsername] = useState("");
+  const [igAccountId, setIgAccountId] = useState("");
+  const [igAccessToken, setIgAccessToken] = useState("");
+  const [igSubmitting, setIgSubmitting] = useState(false);
+  const [igError, setIgError] = useState("");
+
+  // 2. Separate WhatsApp Modal & Form State
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [waDisplayName, setWaDisplayName] = useState("");
+  const [waPhoneNumberId, setWaPhoneNumberId] = useState("");
+  const [waAccessToken, setWaAccessToken] = useState("");
+  const [waSubmitting, setWaSubmitting] = useState(false);
+  const [waError, setWaError] = useState("");
+
+  // 3. Test Modal State (for WhatsApp live testing)
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [activeAccountForTest, setActiveAccountForTest] = useState<SocialAccount | null>(null);
-
-  // Form states
-  const [formAccountName, setFormAccountName] = useState("");
-  const [formAccountId, setFormAccountId] = useState("");
-  const [formAccessToken, setFormAccessToken] = useState("");
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  // Test states
   const [testPhone, setTestPhone] = useState("");
   const [testMessage, setTestMessage] = useState("");
   const [testSubmitting, setTestSubmitting] = useState(false);
@@ -76,53 +80,115 @@ export default function AccountsPage() {
     }
   };
 
-  const handleCopy = (text: string, type: "url" | "token") => {
+  const handleCopy = (text: string, type: "url" | "token" | "account_id", id?: string) => {
     navigator.clipboard.writeText(text);
     if (type === "url") {
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2000);
-    } else {
+    } else if (type === "token") {
       setCopiedToken(true);
       setTimeout(() => setCopiedToken(false), 2000);
+    } else if (id) {
+      setCopiedAccountId(id);
+      setTimeout(() => setCopiedAccountId(null), 2000);
     }
   };
 
-  const handleConnectSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
+  // Open Instagram Modal
+  const openInstagramModal = () => {
+    setIgUsername("");
+    setIgAccountId("");
+    setIgAccessToken("");
+    setIgError("");
+    setInstagramModalOpen(true);
+  };
 
-    if (!formAccountId || !formAccessToken) {
-      setFormError("Account ID and Access Token are required.");
+  // Open WhatsApp Modal
+  const openWhatsAppModal = () => {
+    setWaDisplayName("");
+    setWaPhoneNumberId("");
+    setWaAccessToken("");
+    setWaError("");
+    setWhatsappModalOpen(true);
+  };
+
+  // Submit Instagram Connection
+  const handleInstagramSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIgError("");
+
+    if (!igAccountId.trim() || !igAccessToken.trim()) {
+      setIgError("Instagram Business Account ID and Access Token are required.");
       return;
     }
 
     try {
-      setFormSubmitting(true);
+      setIgSubmitting(true);
       const res = await fetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          platform: selectedPlatform,
-          accountId: formAccountId,
-          accountName: formAccountName || (selectedPlatform === "whatsapp" ? "WhatsApp Number" : "Instagram Account"),
-          accessToken: formAccessToken,
+          platform: "instagram",
+          accountId: igAccountId.trim(),
+          accountName: igUsername.trim() || "Instagram Account",
+          accessToken: igAccessToken.trim(),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to save account");
+        throw new Error(data.error || "Failed to save Instagram account");
       }
 
-      setConnectModalOpen(false);
-      setFormAccountId("");
-      setFormAccountName("");
-      setFormAccessToken("");
+      setInstagramModalOpen(false);
+      setIgUsername("");
+      setIgAccountId("");
+      setIgAccessToken("");
       fetchAccounts();
     } catch (err: any) {
-      setFormError(err.message || "Failed to connect account");
+      setIgError(err.message || "Failed to connect Instagram account");
     } finally {
-      setFormSubmitting(false);
+      setIgSubmitting(false);
+    }
+  };
+
+  // Submit WhatsApp Connection
+  const handleWhatsAppSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWaError("");
+
+    if (!waPhoneNumberId.trim() || !waAccessToken.trim()) {
+      setWaError("WhatsApp Phone Number ID and Permanent Access Token are required.");
+      return;
+    }
+
+    try {
+      setWaSubmitting(true);
+      const res = await fetch("/api/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: "whatsapp",
+          accountId: waPhoneNumberId.trim(),
+          accountName: waDisplayName.trim() || "WhatsApp Business Number",
+          accessToken: waAccessToken.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save WhatsApp account");
+      }
+
+      setWhatsappModalOpen(false);
+      setWaDisplayName("");
+      setWaPhoneNumberId("");
+      setWaAccessToken("");
+      fetchAccounts();
+    } catch (err: any) {
+      setWaError(err.message || "Failed to connect WhatsApp account");
+    } finally {
+      setWaSubmitting(false);
     }
   };
 
@@ -180,109 +246,126 @@ export default function AccountsPage() {
     setActiveAccountForTest(acc);
     setTestResult(null);
     setTestPhone("");
-    setTestMessage("🚀 Hello from Salty Auto! Your WhatsApp Business Cloud API is active and functioning seamlessly.");
+    setTestMessage("Hello from Salty Auto! Your WhatsApp Business Cloud API is active and functioning seamlessly.");
     setTestModalOpen(true);
   };
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      {/* Header */}
+    <div className="space-y-6 max-w-6xl">
+      {/* Header & Dedicated Separate Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <Share2 className="w-6 h-6 text-indigo-400" />
-            Social Media & WhatsApp Integrations
+            Connected Accounts
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Connect your live Meta WhatsApp Business API numbers and Instagram Professional accounts to start automation funnels.
+          <p className="text-sm text-slate-400 mt-0.5">
+            Manage your Meta Graph API and WhatsApp Business Cloud API integrations.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setFormError("");
-            setConnectModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all shadow-md shadow-indigo-500/20"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Connect Meta Account</span>
-        </button>
+        {/* Separate Buttons to Open Separate Pop Up Windows */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openInstagramModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-medium text-sm transition-all shadow-md shadow-pink-500/20"
+          >
+            <Instagram className="w-4 h-4" />
+            <span>Connect Instagram</span>
+          </button>
+
+          <button
+            onClick={openWhatsAppModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-md shadow-emerald-600/20"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>Connect WhatsApp</span>
+          </button>
+        </div>
       </div>
 
-      {/* Meta Webhook Ingress Configuration Card */}
-      <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 via-slate-900/60 to-slate-900/40 space-y-4">
+      {/* Meta Webhook Ingress Endpoint Panel (Clean & Compact) */}
+      <div className="glass-card p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900/60 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <Key className="w-5 h-5" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Key className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Meta Webhook Ingress Endpoint</h2>
-              <p className="text-xs text-slate-400">
-                Configure this in your Meta Developer App under <strong>WhatsApp → Configuration</strong> or <strong>Instagram → Webhooks</strong>.
-              </p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-white">Meta Webhook Ingress</h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                  <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
+                  Active
+                </span>
+              </div>
             </div>
           </div>
+
           <a
             href="https://developers.facebook.com/apps"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-indigo-300 hover:text-indigo-200 transition-colors font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
           >
-            Meta Developer Portal <ExternalLink className="w-3.5 h-3.5" />
+            <span>Meta App Dashboard</span>
+            <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4 pt-2">
+        <div className="grid sm:grid-cols-2 gap-3 pt-1">
           {/* Callback URL */}
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1">
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Callback URL (HTTPS)
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-indigo-300 truncate">
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
+                Callback URL
+              </div>
+              <div className="font-mono text-xs text-slate-200 truncate mt-0.5">
                 {webhookUrl}
-              </span>
-              <button
-                onClick={() => handleCopy(webhookUrl, "url")}
-                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all shrink-0"
-                title="Copy URL"
-              >
-                {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+              </div>
             </div>
+            <button
+              onClick={() => handleCopy(webhookUrl, "url")}
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all shrink-0"
+              title="Copy URL"
+            >
+              {copiedUrl ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            </button>
           </div>
 
           {/* Verify Token */}
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1">
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Verify Token
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs text-indigo-300 truncate">
+          <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider">
+                Verify Token
+              </div>
+              <div className="font-mono text-xs text-slate-200 truncate mt-0.5">
                 {verifyToken}
-              </span>
-              <button
-                onClick={() => handleCopy(verifyToken, "token")}
-                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all shrink-0"
-                title="Copy Verify Token"
-              >
-                {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
+              </div>
             </div>
+            <button
+              onClick={() => handleCopy(verifyToken, "token")}
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-all shrink-0"
+              title="Copy Token"
+            >
+              {copiedToken ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Connected Accounts Section */}
-      <div>
-        <h2 className="text-lg font-bold text-white mb-3">Active Connected Channels</h2>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-white">
+            Active Channels {accounts.length > 0 && `(${accounts.length})`}
+          </h2>
+        </div>
 
         {loading ? (
           <div className="glass-card p-12 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-3" />
-            <p className="text-sm">Loading connected social accounts...</p>
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-500 mb-2" />
+            <p className="text-sm">Loading connected channels...</p>
           </div>
         ) : accounts.length === 0 ? (
           <div className="glass-card p-10 rounded-2xl border border-dashed border-slate-800 text-center space-y-4">
@@ -290,18 +373,27 @@ export default function AccountsPage() {
               <Smartphone className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">No Meta Accounts Connected Yet</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                Connect your WhatsApp Business Phone Number ID or Instagram Professional account to activate comment automation and 24-hour instant customer auto-replies.
+              <h3 className="text-base font-semibold text-white">No Channels Connected</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                Connect your Instagram Professional or WhatsApp Business account to enable real-time messaging automation.
               </p>
             </div>
-            <button
-              onClick={() => setConnectModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition-all shadow-md shadow-indigo-500/20"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Connect Your First Account</span>
-            </button>
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <button
+                onClick={openInstagramModal}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 text-white font-medium text-xs transition-all shadow-md shadow-pink-500/20"
+              >
+                <Instagram className="w-3.5 h-3.5" />
+                <span>Connect Instagram Account</span>
+              </button>
+              <button
+                onClick={openWhatsAppModal}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-all shadow-md shadow-emerald-600/20"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Connect WhatsApp Business</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -329,8 +421,20 @@ export default function AccountsPage() {
                       <h3 className="font-bold text-white text-base">
                         {acc.account_name || (acc.platform === "whatsapp" ? "WhatsApp Number" : "Instagram Account")}
                       </h3>
-                      <div className="text-xs text-slate-400 font-mono">
-                        {acc.platform === "whatsapp" ? `Phone ID: ${acc.account_id}` : `IG ID: ${acc.account_id}`}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono mt-0.5">
+                        <span>{acc.platform === "whatsapp" ? "Phone ID:" : "IG ID:"}</span>
+                        <span className="text-slate-300 truncate max-w-[160px]">{acc.account_id}</span>
+                        <button
+                          onClick={() => handleCopy(acc.account_id, "account_id", acc.id)}
+                          className="hover:text-white transition-colors"
+                          title="Copy ID"
+                        >
+                          {copiedAccountId === acc.id ? (
+                            <Check className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-slate-500" />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -343,15 +447,17 @@ export default function AccountsPage() {
 
                 <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span>Platform:</span>
-                    <span className="text-slate-200 capitalize font-medium">{acc.platform}</span>
+                    <span>Integration:</span>
+                    <span className="text-slate-200 font-medium">
+                      {acc.platform === "whatsapp" ? "WhatsApp Cloud API" : "Instagram Graph API"}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-slate-400">
                     <span>Status:</span>
                     <span className="text-emerald-400 font-medium">Active & Synchronized</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-400">
-                    <span>Added on:</span>
+                    <span>Connected:</span>
                     <span className="text-slate-400">{new Date(acc.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -366,7 +472,10 @@ export default function AccountsPage() {
                       <span>Send Test Message</span>
                     </button>
                   ) : (
-                    <span className="text-xs text-slate-500 italic">Listening for comment webhooks</span>
+                    <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-pink-400" />
+                      <span>Comment & DM Webhooks Live</span>
+                    </span>
                   )}
 
                   <button
@@ -383,192 +492,106 @@ export default function AccountsPage() {
         )}
       </div>
 
-      {/* Step-by-Step Meta Integration Guide */}
-      <div className="glass-card p-6 rounded-2xl border border-slate-800 space-y-5">
-        <div className="flex items-center gap-2.5 text-indigo-400">
-          <HelpCircle className="w-5 h-5" />
-          <h2 className="text-base font-bold text-white">How to Get WhatsApp Business Cloud API Credentials</h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3 text-xs">
-          {/* Step 1 */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-            <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-bold flex items-center justify-center text-xs">
-              1
-            </div>
-            <h3 className="font-semibold text-slate-200">Create Meta App & Add WhatsApp</h3>
-            <p className="text-slate-400 leading-relaxed">
-              In <a href="https://developers.facebook.com" target="_blank" className="text-indigo-400 underline">developers.facebook.com</a>, create an App with type <strong>Business</strong>. Click <strong>Set Up WhatsApp</strong> on the App Dashboard.
-            </p>
-          </div>
-
-          {/* Step 2 */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-            <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-bold flex items-center justify-center text-xs">
-              2
-            </div>
-            <h3 className="font-semibold text-slate-200">Copy Phone Number ID</h3>
-            <p className="text-slate-400 leading-relaxed">
-              Navigate to <strong>WhatsApp → API Setup</strong>. You will see a <strong>Phone Number ID</strong> (and a test number provided by Meta, or your registered business number).
-            </p>
-          </div>
-
-          {/* Step 3 */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-            <div className="w-6 h-6 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 font-bold flex items-center justify-center text-xs">
-              3
-            </div>
-            <h3 className="font-semibold text-slate-200">Generate Permanent Token</h3>
-            <p className="text-slate-400 leading-relaxed">
-              Go to Meta Business Suite → <strong>System Users</strong>. Create a System User, assign your App, and generate a permanent token with permissions: <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code>.
-            </p>
-          </div>
-        </div>
-
-        <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/20 flex items-start gap-3">
-          <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-300">
-            <strong>Free Tier Policy:</strong> Meta provides <strong>1,000 free service (user-initiated) conversations per month</strong> for each WhatsApp Business Account. Replies within 24 hours to customer inbound messages cost $0.00.
-          </div>
-        </div>
-      </div>
-
-      {/* Connect Account Modal */}
-      {connectModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      {/* ==================================================================== */}
+      {/* POPUP WINDOW 1: Dedicated Instagram Connect Modal                    */}
+      {/* ==================================================================== */}
+      {instagramModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-pink-500/30 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl shadow-pink-950/40 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-indigo-400" />
-                Connect Meta Channel
-              </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-pink-600/30">
+                  <Instagram className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Connect Instagram Account</h3>
+                  <p className="text-xs text-pink-400">Meta Graph API • Professional Account</p>
+                </div>
+              </div>
               <button
-                onClick={() => setConnectModalOpen(false)}
-                className="text-slate-400 hover:text-white text-sm p-1"
+                onClick={() => setInstagramModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            {/* Platform Selection */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedPlatform("whatsapp")}
-                className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                  selectedPlatform === "whatsapp"
-                    ? "bg-emerald-600/20 border-emerald-500/60 text-white"
-                    : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0">
-                  <MessageCircle className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-white">WhatsApp Business</div>
-                  <div className="text-[10px] text-slate-400">Cloud API</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedPlatform("instagram")}
-                className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                  selectedPlatform === "instagram"
-                    ? "bg-pink-600/20 border-pink-500/60 text-white"
-                    : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-pink-600 flex items-center justify-center text-white shrink-0">
-                  <Instagram className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-white">Instagram Pro</div>
-                  <div className="text-[10px] text-slate-400">Graph API</div>
-                </div>
-              </button>
-            </div>
-
             {/* Form */}
-            <form onSubmit={handleConnectSubmit} className="space-y-4">
-              {formError && (
+            <form onSubmit={handleInstagramSubmit} className="space-y-4">
+              {igError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
+                  <span>{igError}</span>
                 </div>
               )}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Display Label / Account Name
+                  Instagram Handle / Account Name
                 </label>
                 <input
                   type="text"
-                  value={formAccountName}
-                  onChange={(e) => setFormAccountName(e.target.value)}
-                  placeholder={
-                    selectedPlatform === "whatsapp"
-                      ? "e.g. Salty Media Official (+91 98811 20025)"
-                      : "e.g. @saltymediaproduction"
-                  }
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  value={igUsername}
+                  onChange={(e) => setIgUsername(e.target.value)}
+                  placeholder="e.g. @saltymediaproduction"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-pink-500 transition-colors"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  {selectedPlatform === "whatsapp" ? "Phone Number ID" : "Instagram Business Account ID"}
-                  <span className="text-rose-400 ml-1">*</span>
+                  Instagram Business Account ID
+                  <span className="text-pink-400 ml-1">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  value={formAccountId}
-                  onChange={(e) => setFormAccountId(e.target.value)}
-                  placeholder={
-                    selectedPlatform === "whatsapp"
-                      ? "e.g. 105938481234567 (from WhatsApp > API Setup)"
-                      : "e.g. 17841400012345678"
-                  }
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+                  value={igAccountId}
+                  onChange={(e) => setIgAccountId(e.target.value)}
+                  placeholder="e.g. 17841400012345678"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:border-pink-500 transition-colors"
                 />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Found in Meta Business Suite or Graph API Explorer under your Instagram Professional Account.
+                </p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Access Token (Permanent or System User Token)
-                  <span className="text-rose-400 ml-1">*</span>
+                  Meta Graph API Access Token (System User / Page Token)
+                  <span className="text-pink-400 ml-1">*</span>
                 </label>
                 <textarea
                   required
                   rows={3}
-                  value={formAccessToken}
-                  onChange={(e) => setFormAccessToken(e.target.value)}
-                  placeholder="EAAG... (Paste permanent System User token with messaging permissions)"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+                  value={igAccessToken}
+                  onChange={(e) => setIgAccessToken(e.target.value)}
+                  placeholder="EAAG... (Paste token with instagram_basic, instagram_manage_comments, instagram_manage_messages)"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-pink-500 transition-colors"
                 />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setConnectModalOpen(false)}
+                  onClick={() => setInstagramModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={formSubmitting}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-md shadow-indigo-500/20 disabled:opacity-50 flex items-center gap-2"
+                  disabled={igSubmitting}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-semibold text-xs transition-all shadow-md shadow-pink-600/20 disabled:opacity-50 flex items-center gap-2"
                 >
-                  {formSubmitting ? (
+                  {igSubmitting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving...</span>
+                      <span>Connecting Instagram...</span>
                     </>
                   ) : (
-                    <span>Save & Connect</span>
+                    <span>Save & Connect Instagram</span>
                   )}
                 </button>
               </div>
@@ -577,18 +600,128 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {/* Test WhatsApp Message Modal */}
+      {/* ==================================================================== */}
+      {/* POPUP WINDOW 2: Dedicated WhatsApp Connect Modal                     */}
+      {/* ==================================================================== */}
+      {whatsappModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl shadow-emerald-950/40 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-emerald-600/30">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Connect WhatsApp Business</h3>
+                  <p className="text-xs text-emerald-400">Meta WhatsApp Cloud API Integration</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setWhatsappModalOpen(false)}
+                className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleWhatsAppSubmit} className="space-y-4">
+              {waError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{waError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Display Phone / Business Label
+                </label>
+                <input
+                  type="text"
+                  value={waDisplayName}
+                  onChange={(e) => setWaDisplayName(e.target.value)}
+                  placeholder="e.g. Salty Media Support (+91 98811 20025)"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  WhatsApp Phone Number ID
+                  <span className="text-emerald-400 ml-1">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={waPhoneNumberId}
+                  onChange={(e) => setWaPhoneNumberId(e.target.value)}
+                  placeholder="e.g. 105938481234567"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Located in Meta Developer App under <strong>WhatsApp → API Setup → Phone Number ID</strong>.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Permanent System User Token
+                  <span className="text-emerald-400 ml-1">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={waAccessToken}
+                  onChange={(e) => setWaAccessToken(e.target.value)}
+                  placeholder="EAAG... (Paste permanent System User token with whatsapp_business_messaging permissions)"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setWhatsappModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={waSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {waSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Connecting WhatsApp...</span>
+                    </>
+                  ) : (
+                    <span>Save & Connect WhatsApp</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* Test WhatsApp Message Modal                                          */}
+      {/* ==================================================================== */}
       {testModalOpen && activeAccountForTest && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Send className="w-5 h-5 text-emerald-400" />
-                Live WhatsApp API Dispatch Tester
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Send className="w-4 h-4 text-emerald-400" />
+                Live WhatsApp API Dispatch Test
               </h3>
               <button
                 onClick={() => setTestModalOpen(false)}
-                className="text-slate-400 hover:text-white text-sm p-1"
+                className="text-slate-400 hover:text-white text-sm p-1 rounded-lg hover:bg-slate-800 transition-colors"
               >
                 ✕
               </button>
@@ -621,9 +754,6 @@ export default function AccountsPage() {
                       <AlertCircle className="w-4 h-4" /> Meta API Error:
                     </div>
                     <div>{testResult.error}</div>
-                    <div className="text-[10px] text-slate-400 mt-1">
-                      Note: If using Meta's test number, make sure the recipient phone number is added to your Allowed Recipient list in Meta Developer Portal &gt; WhatsApp &gt; API Setup.
-                    </div>
                   </>
                 )}
               </div>
@@ -673,7 +803,7 @@ export default function AccountsPage() {
                   {testSubmitting ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Sending via Meta API...</span>
+                      <span>Sending...</span>
                     </>
                   ) : (
                     <>
