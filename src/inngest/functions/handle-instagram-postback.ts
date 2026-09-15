@@ -34,11 +34,14 @@ export const handleInstagramPostback = inngest.createFunction(
       return { status: "ignored", reason: "invalid_payload_json" };
     }
 
-    if (parsedPayload.action !== "CHECK_FOLLOW" || !parsedPayload.ruleId) {
-      return { status: "ignored", reason: "not_follow_check_action" };
+    if (
+      (parsedPayload.action !== "CHECK_FOLLOW" && parsedPayload.action !== "OPENING_OPTIN") ||
+      !parsedPayload.ruleId
+    ) {
+      return { status: "ignored", reason: "not_supported_action" };
     }
 
-    const { ruleId, workspaceId } = parsedPayload;
+    const { ruleId, workspaceId, action } = parsedPayload;
     const supabase = createAdminClient();
 
     // 1. Fetch account access token
@@ -73,15 +76,21 @@ export const handleInstagramPostback = inngest.createFunction(
 
     const config = parseRuleConfig(rule.dm_message, rule);
 
-    // 3. Verify follow status via Meta Graph API
-    const isFollowing = await step.run("verify-follow-status", async () => {
-      return await checkUserFollowsBusiness(senderId, account.access_token);
-    });
+    // 3. If action is OPENING_OPTIN and follow is NOT required, deliver directly
+    // If action is CHECK_FOLLOW or require_follow is true, verify follow status
+    let isFollowing: boolean | null = null;
+    let shouldDeliver = action === "OPENING_OPTIN" && !config.require_follow;
 
-    // 4. Send reveal or reminder based on follow status
-    // (Notice: if isFollowing is null, fail-open to never trap legitimate users)
-    if (isFollowing === true || isFollowing === null) {
-      // User is following -> Deliver the gated content
+    if (!shouldDeliver) {
+      isFollowing = await step.run("verify-follow-status", async () => {
+        return await checkUserFollowsBusiness(senderId, account.access_token);
+      });
+      shouldDeliver = isFollowing === true || isFollowing === null;
+    }
+
+    // 4. Send reveal or reminder based on status
+    if (shouldDeliver) {
+      // Deliver the content
       await step.run("send-gated-content", async () => {
         const appUrl =
           process.env.NEXT_PUBLIC_APP_URL || "https://auto.saltymediaproduction.com";

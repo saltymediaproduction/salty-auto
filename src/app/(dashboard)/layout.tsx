@@ -15,6 +15,7 @@ import {
   User,
   Radio,
   ExternalLink,
+  Wallet,
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -79,14 +80,14 @@ export default function DashboardLayout({
       isActive: pathname.startsWith("/crm"),
     },
     {
-      name: "Accounts",
-      fullName: "Connected Accounts",
-      href: "/accounts",
-      icon: Share2,
-      activeColor: "from-indigo-600 to-purple-600",
-      activeText: "text-indigo-400",
-      activeBg: "bg-indigo-500/10 border-indigo-500/30 text-indigo-300",
-      isActive: pathname.startsWith("/accounts"),
+      name: "Billing",
+      fullName: "Account & Billing",
+      href: "/user",
+      icon: Wallet,
+      activeColor: "from-amber-500 to-orange-500",
+      activeText: "text-amber-400",
+      activeBg: "bg-amber-500/10 border-amber-500/30 text-amber-300",
+      isActive: pathname.startsWith("/user"),
     },
   ];
 
@@ -149,12 +150,17 @@ export default function DashboardLayout({
 
         {/* Bottom User & Sign Out Rail Actions */}
         <div className="flex flex-col items-center gap-3 w-full px-2 pt-4 border-t border-slate-800/80">
-          <div
-            className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-            title={userEmail || "Agency User"}
+          <Link
+            href="/user"
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+              pathname.startsWith("/user")
+                ? "bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-md shadow-amber-500/10"
+                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/60"
+            }`}
+            title={`Account & Invoicing (${userEmail || "Agency User"})`}
           >
             <User className="w-4 h-4" />
-          </div>
+          </Link>
 
           <button
             onClick={handleLogout}

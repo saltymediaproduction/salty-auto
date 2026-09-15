@@ -47,6 +47,9 @@ export type Events = {
       from: string; // E.164 phone number
       profileName?: string;
       text: string;
+      isInteractive?: boolean;
+      interactiveId?: string;
+      interactiveTitle?: string;
       timestamp: number;
     };
   };

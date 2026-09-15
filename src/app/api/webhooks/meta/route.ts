@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMetaSignature } from "@/lib/meta/crypto";
-import { inngest } from "@/inngest/client";
+import { dispatchAutomationEvent } from "@/lib/queue/dispatcher";
 
 /**
  * GET Handler: Meta Webhook URL Verification Challenge
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
               continue;
             }
 
-            await inngest.send({
+            await dispatchAutomationEvent({
               name: "meta/instagram.comment",
               data: {
                 accountId,
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
           // Instagram New Media Published (for 'Attach to Next Reel' workflows)
           if (change.field === "media" && change.value) {
             const val = change.value;
-            await inngest.send({
+            await dispatchAutomationEvent({
               name: "meta/instagram.media",
               data: {
                 accountId,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
           // Button Template Postback (e.g. "I'm Following" button click)
           if (msgItem.postback) {
-            await inngest.send({
+            await dispatchAutomationEvent({
               name: "meta/instagram.postback",
               data: {
                 accountId,
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
           // Inbound Direct Message or Story Reply
           if (msgItem.message && msgItem.message.text) {
-            await inngest.send({
+            await dispatchAutomationEvent({
               name: "meta/instagram.dm",
               data: {
                 accountId,
@@ -140,19 +140,44 @@ export async function POST(req: NextRequest) {
 
           if (value?.messages && phoneNumberId) {
             for (const msg of value.messages) {
-              // We handle inbound text messages
-              if (msg.type === "text" && msg.text?.body) {
-                const contact = value.contacts?.find((c: { wa_id: string }) => c.wa_id === msg.from);
+              const contact = value.contacts?.find((c: { wa_id: string }) => c.wa_id === msg.from);
+              const profileName = contact?.profile?.name || "";
+              const timestamp = msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now();
 
-                await inngest.send({
+              // Inbound standard text messages
+              if (msg.type === "text" && msg.text?.body) {
+                await dispatchAutomationEvent({
                   name: "meta/whatsapp.message",
                   data: {
                     phoneNumberId,
                     messageId: msg.id,
                     from: msg.from,
-                    profileName: contact?.profile?.name || "",
+                    profileName,
                     text: msg.text.body,
-                    timestamp: msg.timestamp ? Number(msg.timestamp) * 1000 : Date.now(),
+                    timestamp,
+                  },
+                });
+              }
+
+              // Inbound interactive button replies or list selections (Jasper's Market architecture)
+              if (msg.type === "interactive" && msg.interactive) {
+                const buttonReply = msg.interactive.button_reply;
+                const listReply = msg.interactive.list_reply;
+                const interactiveId = buttonReply?.id || listReply?.id || "";
+                const interactiveTitle = buttonReply?.title || listReply?.title || "";
+
+                await dispatchAutomationEvent({
+                  name: "meta/whatsapp.message",
+                  data: {
+                    phoneNumberId,
+                    messageId: msg.id,
+                    from: msg.from,
+                    profileName,
+                    text: interactiveTitle || interactiveId,
+                    isInteractive: true,
+                    interactiveId,
+                    interactiveType: msg.interactive.type,
+                    timestamp,
                   },
                 });
               }

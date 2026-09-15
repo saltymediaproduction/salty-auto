@@ -22,6 +22,9 @@ export function middleware(request: NextRequest) {
 
   // 2. Unauthenticated user trying to access protected dashboard routes
   if (!isAuthenticated && !isAuthPage) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     return NextResponse.redirect(redirectUrl);

@@ -4,6 +4,7 @@ import { handleInstagramComment } from "@/inngest/functions/handle-instagram-com
 import { handleWhatsAppMessage } from "@/inngest/functions/handle-whatsapp-message";
 import { handleInstagramPostback } from "@/inngest/functions/handle-instagram-postback";
 import { handleInstagramMedia } from "@/inngest/functions/handle-instagram-media";
+import { cleanupLogsCron } from "@/inngest/functions/cleanup-logs";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -12,5 +13,6 @@ export const { GET, POST, PUT } = serve({
     handleWhatsAppMessage,
     handleInstagramPostback,
     handleInstagramMedia,
+    cleanupLogsCron,
   ],
 });

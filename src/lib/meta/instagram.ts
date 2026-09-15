@@ -294,3 +294,61 @@ export async function checkUserFollowsBusiness(
   }
 }
 
+export interface InstagramMediaItem {
+  id: string;
+  caption?: string;
+  media_type: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM";
+  media_product_type?: "REELS" | "FEED";
+  media_url?: string;
+  thumbnail_url?: string;
+  permalink?: string;
+  timestamp: string;
+  like_count?: number;
+  comments_count?: number;
+}
+
+/**
+ * Fetches user's published media (Posts, Reels, Carousels) from Meta Graph API.
+ * Endpoint: GET /{ig_user_id}/media
+ */
+export async function getInstagramUserMedia(
+  accountId: string,
+  accessToken: string,
+  limit = 50
+): Promise<InstagramApiResponse<InstagramMediaItem[]>> {
+  const fields = "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count";
+  const url = `${GRAPH_API_BASE}/${GRAPH_VERSION}/${accountId}/media?fields=${fields}&limit=${limit}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("[Instagram API] Fetch media error:", data);
+      return {
+        success: false,
+        error: data.error?.message || "Failed to fetch Instagram posts",
+        statusCode: res.status,
+      };
+    }
+
+    return {
+      success: true,
+      data: data.data || [],
+      statusCode: res.status,
+    };
+  } catch (err) {
+    console.error("[Instagram API] Fetch media network error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+}
+

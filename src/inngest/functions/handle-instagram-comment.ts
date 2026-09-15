@@ -9,6 +9,8 @@ import {
 import { matchKeywords } from "@/lib/utils/keyword-matcher";
 import { parseRuleConfig } from "@/lib/automation/rules";
 import { getOrCreateTrackedLink } from "@/lib/tracking/client";
+import { deductAutomationCost } from "@/lib/billing/wallet";
+import { getCachedActiveRules, getCachedSocialAccount } from "@/lib/cache/rules-cache";
 
 export const handleInstagramComment = inngest.createFunction(
   {
@@ -35,11 +37,12 @@ export const handleInstagramComment = inngest.createFunction(
       fromId,
       fromUsername,
       text,
+      timestamp,
     } = event.data;
 
     const supabase = createAdminClient();
 
-    // 1. Deduplication check via database
+    // 1. Deduplication check: Has this comment already been processed?
     const isAlreadyProcessed = await step.run("check-deduplication", async () => {
       const { data } = await supabase
         .from("auto_automation_logs")
@@ -51,20 +54,15 @@ export const handleInstagramComment = inngest.createFunction(
     });
 
     if (isAlreadyProcessed) {
+      console.log(`[Instagram Inngest] Comment ${commentId} already processed. Skipping.`);
       return { status: "skipped", reason: "already_processed" };
     }
 
-    // 2. Fetch active connected social account & access token
+    // 2. Fetch active connected social account & access token (Edge-Cached)
     const account = await step.run("fetch-social-account", async () => {
-      const { data, error } = await supabase
-        .from("auto_social_accounts")
-        .select("id, workspace_id, access_token, status")
-        .eq("platform", "instagram")
-        .eq("account_id", accountId)
-        .eq("status", "active")
-        .maybeSingle();
+      const data = await getCachedSocialAccount("instagram", accountId);
 
-      if (error || !data) {
+      if (!data) {
         throw new Error(
           `No active social account found for Instagram ID: ${accountId}`
         );
@@ -73,17 +71,15 @@ export const handleInstagramComment = inngest.createFunction(
       return data;
     });
 
-    // 3. Find matching active rule
+    // 3. Find matching active rule (Edge-Cached)
     const matchingRule = await step.run("match-automation-rule", async () => {
-      const { data: rules, error } = await supabase
-        .from("auto_automation_rules")
-        .select("*")
-        .eq("workspace_id", account.workspace_id)
-        .eq("platform", "instagram")
-        .eq("trigger_type", "comment")
-        .eq("is_active", true);
+      const rules = await getCachedActiveRules(
+        account.workspace_id,
+        "instagram",
+        "comment"
+      );
 
-      if (error || !rules || rules.length === 0) {
+      if (!rules || rules.length === 0) {
         return null;
       }
 
@@ -193,6 +189,38 @@ export const handleInstagramComment = inngest.createFunction(
         return res.data;
       }
 
+      // Case A2: 2-Step Opening DM Icebreaker Opt-In
+      if (config.opening_dm_enabled) {
+        const openingText = (config.opening_dm_message || "Hey there! Tap below to get your exclusive access link 🚀")
+          .replace(/\{username\}/gi, fromUsername)
+          .replace(/\{name\}/gi, fromUsername);
+
+        const res = await sendInstagramButtonTemplate({
+          instagramAccountId: accountId,
+          recipient: { comment_id: commentId },
+          messageText: openingText,
+          buttons: [
+            {
+              type: "postback",
+              title: config.opening_dm_button_label || "Send me the link!",
+              payload: JSON.stringify({
+                action: config.require_follow ? "CHECK_FOLLOW" : "OPENING_OPTIN",
+                ruleId: rule.id,
+                workspaceId: account.workspace_id,
+                commentId,
+              }),
+            },
+          ],
+          accessToken: account.access_token,
+        });
+
+        if (!res.success) {
+          throw new Error(`Failed to send opening DM: ${res.error}`);
+        }
+
+        return res.data;
+      }
+
       // Case B: Interactive Button Template Campaign (with Tracked Links)
       if (config.buttons && config.buttons.length > 0) {
         const messageText = config.dm_message
@@ -289,7 +317,7 @@ export const handleInstagramComment = inngest.createFunction(
       return data;
     });
 
-    // 8. Log successful automation run for deduplication & audit trail
+    // 8. Log successful automation run for deduplication & audit trail and deduct cost
     await step.run("log-automation-success", async () => {
       await supabase.from("auto_automation_logs").insert({
         workspace_id: account.workspace_id,
@@ -300,6 +328,18 @@ export const handleInstagramComment = inngest.createFunction(
         status: "success",
         error_message: null,
       });
+
+      // Deduct automation cost from real-time wallet ledger
+      try {
+        await deductAutomationCost(
+          account.workspace_id,
+          0.15,
+          `Instagram Comment-to-DM: @${fromUsername}`,
+          matchingRule.rule.id
+        );
+      } catch (deductErr) {
+        console.warn("[Billing] Automation deduction failed:", deductErr);
+      }
     });
 
     // 9. Scheduled Follow-Up DM (Optional, within 24-hour customer care window)

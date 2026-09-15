@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
 
-export default function DashboardRoot() {
-  redirect("/instagram");
+import InstagramSuitePage from "./instagram/page";
+
+export default function DashboardRootPage() {
+  return <InstagramSuitePage />;
 }
