@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsAppTextMessage } from "@/lib/meta/whatsapp";
 import { logMessageToCRM } from "@/lib/crm/messages";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createServerClient();
+    const supabase = await createServerSupabaseClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Send Message via Meta Graph API
+    if (!contact.whatsapp_phone) {
+      return NextResponse.json({ error: "Contact does not have a WhatsApp phone number" }, { status: 400 });
+    }
+
     const response = await sendWhatsAppTextMessage(
       account.account_id, // Phone Number ID
       contact.whatsapp_phone,
