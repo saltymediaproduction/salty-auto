@@ -1,248 +1,317 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Users,
-  Search,
-  Filter,
-  Instagram,
-  Phone,
-  Tag,
-  Clock,
-  CheckCircle2,
-  ChevronRight,
-  Sparkles,
+import { useEffect, useState, useRef } from "react";
+import { 
+  MessageSquare, User, Phone, Send, Search, 
+  MoreVertical, Check, Clock, Bot
 } from "lucide-react";
+import { format } from "date-fns";
 
-interface Contact {
+type Contact = {
   id: string;
   name: string;
-  instagram_username?: string;
-  whatsapp_phone?: string;
-  stage: "lead" | "engaged" | "qualified" | "customer";
+  whatsapp_phone: string;
+  instagram_username: string;
+  stage: string;
   tags: string[];
   last_contacted_at: string;
-  platform: "instagram" | "whatsapp";
-}
+};
 
-export default function CRMPage() {
-  const [activeStage, setActiveStage] = useState<string>("all");
-  const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "whatsapp">("all");
-  const [search, setSearch] = useState("");
+type Message = {
+  id: string;
+  direction: "inbound" | "outbound";
+  platform: "whatsapp" | "instagram";
+  text: string | null;
+  created_at: string;
+  metadata: any;
+};
 
-  const [contacts] = useState<Contact[]>([
-    {
-      id: "c1",
-      name: "Trishul Patel",
-      instagram_username: "trishul.design",
-      stage: "qualified",
-      tags: ["instagram-comment-funnel", "high-intent"],
-      last_contacted_at: "10 minutes ago",
-      platform: "instagram",
-    },
-    {
-      id: "c2",
-      name: "Aarav Sharma",
-      whatsapp_phone: "+91 98200 12345",
-      stage: "engaged",
-      tags: ["whatsapp-inbound", "pricing-inquiry"],
-      last_contacted_at: "25 minutes ago",
+export default function CRMDashboard() {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activeContact, setActiveContact] = useState<Contact | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchContacts();
+    const interval = setInterval(fetchContacts, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (activeContact) {
+      fetchMessages(activeContact.id);
+      const interval = setInterval(() => fetchMessages(activeContact.id, true), 5000);
+      return () => clearInterval(interval);
+    } else {
+      setMessages([]);
+    }
+  }, [activeContact]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const fetchContacts = async () => {
+    try {
+      const res = await fetch("/api/crm/contacts");
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data.contacts || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const fetchMessages = async (contactId: string, background = false) => {
+    if (!background) setLoadingMessages(true);
+    try {
+      const res = await fetch(`/api/crm/messages?contactId=${contactId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!background) setLoadingMessages(false);
+    }
+  };
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim() || !activeContact) return;
+
+    const textToSend = draft.trim();
+    setDraft("");
+    setSending(true);
+
+    // Optimistic UI
+    const tempId = `temp-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: tempId,
+      direction: "outbound",
       platform: "whatsapp",
-    },
-    {
-      id: "c3",
-      name: "Sanya Malhotra",
-      instagram_username: "sanya.creator",
-      stage: "customer",
-      tags: ["closed-deal", "production-package"],
-      last_contacted_at: "2 hours ago",
-      platform: "instagram",
-    },
-    {
-      id: "c4",
-      name: "Dev Verma",
-      instagram_username: "dev_v_media",
-      stage: "lead",
-      tags: ["instagram-comment-funnel"],
-      last_contacted_at: "Yesterday",
-      platform: "instagram",
-    },
-  ]);
+      text: textToSend,
+      created_at: new Date().toISOString(),
+      metadata: {}
+    }]);
 
-  const stages = [
-    { id: "all", label: "All Contacts", count: contacts.length },
-    { id: "lead", label: "New Leads", count: contacts.filter((c) => c.stage === "lead").length },
-    { id: "engaged", label: "Engaged (DM/Comment)", count: contacts.filter((c) => c.stage === "engaged").length },
-    { id: "qualified", label: "Qualified", count: contacts.filter((c) => c.stage === "qualified").length },
-    { id: "customer", label: "Customers", count: contacts.filter((c) => c.stage === "customer").length },
-  ];
+    try {
+      const res = await fetch("/api/whatsapp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: activeContact.id, text: textToSend })
+      });
 
-  const filteredContacts = contacts.filter((c) => {
-    const matchesStage = activeStage === "all" || c.stage === activeStage;
-    const matchesPlatform = platformFilter === "all" || c.platform === platformFilter;
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      (c.instagram_username && c.instagram_username.toLowerCase().includes(search.toLowerCase())) ||
-      (c.whatsapp_phone && c.whatsapp_phone.includes(search));
-    return matchesStage && matchesPlatform && matchesSearch;
-  });
+      if (!res.ok) {
+        throw new Error("Failed to send");
+      }
+      
+      // Refresh to get real message ID from DB
+      await fetchMessages(activeContact.id, true);
+    } catch (err) {
+      console.error("Send error:", err);
+      // Remove optimistic message on fail
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <Users className="w-6 h-6 text-indigo-400" />
-            Social CRM & Lead Tracker
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time contact tracking and lead staging synced automatically from Instagram and WhatsApp webhooks.
-          </p>
+    <div className="flex h-[calc(100vh-5rem)] bg-zinc-50/50 dark:bg-zinc-950/50 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xl backdrop-blur-sm">
+      
+      {/* Sidebar - Contacts List */}
+      <div className="w-80 border-r border-zinc-200 dark:border-zinc-800 flex flex-col bg-white/50 dark:bg-zinc-900/50">
+        <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+            <MessageSquare className="w-5 h-5 text-indigo-500" />
+            Live Inbox
+          </h2>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input 
+              type="text" 
+              placeholder="Search contacts..." 
+              className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500/50 transition-all"
+            />
+          </div>
         </div>
 
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Supabase Realtime Synced</span>
-        </div>
-      </div>
-
-      {/* Stage tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-4">
-        {stages.map((stage) => (
-          <button
-            key={stage.id}
-            onClick={() => setActiveStage(stage.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeStage === stage.id
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
-                : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
-            }`}
-          >
-            <span>{stage.label}</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                activeStage === stage.id ? "bg-white/20 text-white" : "bg-slate-800 text-slate-400"
-              }`}
-            >
-              {stage.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Search and channel filter bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by name, Instagram username, or phone number..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500"
-          />
-        </div>
-
-        {/* Platform Channel Switcher */}
-        <div className="flex p-1 bg-slate-900/90 border border-slate-800 rounded-xl shrink-0 text-xs">
-          <button
-            onClick={() => setPlatformFilter("all")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-              platformFilter === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            All Channels
-          </button>
-          <button
-            onClick={() => setPlatformFilter("instagram")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              platformFilter === "instagram" ? "bg-pink-600 text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Instagram className="w-3.5 h-3.5" />
-            Instagram
-          </button>
-          <button
-            onClick={() => setPlatformFilter("whatsapp")}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              platformFilter === "whatsapp" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Phone className="w-3.5 h-3.5" />
-            WhatsApp
-          </button>
-        </div>
-      </div>
-
-      {/* Contacts List */}
-      <div className="grid gap-3">
-        {filteredContacts.map((contact) => (
-          <div
-            key={contact.id}
-            className="glass-card p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-800 hover:border-slate-700 transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
-                  contact.platform === "instagram"
-                    ? "bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500"
-                    : "bg-emerald-600"
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {loadingContacts ? (
+            <div className="p-4 text-center text-zinc-500 text-sm">Loading contacts...</div>
+          ) : contacts.length === 0 ? (
+            <div className="p-8 text-center text-zinc-500 text-sm flex flex-col items-center gap-3">
+              <Bot className="w-8 h-8 opacity-50" />
+              <p>No conversations yet. Connect your WhatsApp and send a message to get started.</p>
+            </div>
+          ) : (
+            contacts.map(contact => (
+              <button
+                key={contact.id}
+                onClick={() => setActiveContact(contact)}
+                className={`w-full text-left p-3 rounded-xl transition-all flex items-start gap-3 ${
+                  activeContact?.id === contact.id 
+                    ? "bg-indigo-50 dark:bg-indigo-500/10 ring-1 ring-indigo-500/30" 
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
                 }`}
               >
-                {contact.name.charAt(0)}
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm text-white">{contact.name}</h3>
-
-                  <span
-                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                      contact.stage === "qualified"
-                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                        : contact.stage === "customer"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : "bg-slate-800 text-slate-400 border border-slate-700"
-                    }`}
-                  >
-                    {contact.stage}
-                  </span>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium shadow-sm shrink-0">
+                  {contact.name.charAt(0).toUpperCase()}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-0.5">
+                    <h3 className="font-medium text-sm truncate pr-2">
+                      {contact.name}
+                    </h3>
+                    <span className="text-[10px] text-zinc-400 shrink-0">
+                      {format(new Date(contact.last_contacted_at), "HH:mm")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 truncate flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> 
+                    {contact.whatsapp_phone}
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
 
-                <div className="flex items-center gap-3 text-xs text-slate-400">
-                  {contact.instagram_username && (
-                    <span className="flex items-center gap-1 font-mono text-pink-300">
-                      @{contact.instagram_username}
-                    </span>
-                  )}
-                  {contact.whatsapp_phone && (
-                    <span className="flex items-center gap-1 font-mono text-emerald-300">
-                      {contact.whatsapp_phone}
-                    </span>
-                  )}
-                  <span>•</span>
-                  <span className="flex items-center gap-1 text-slate-500">
-                    <Clock className="w-3 h-3" />
-                    {contact.last_contacted_at}
-                  </span>
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-zinc-950/30 relative">
+        {activeContact ? (
+          <>
+            {/* Chat Header */}
+            <div className="h-16 px-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md absolute top-0 w-full z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium shadow-md">
+                  {activeContact.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="font-semibold">{activeContact.name}</h2>
+                  <div className="text-xs flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    Active on WhatsApp
+                  </div>
                 </div>
               </div>
+              <button className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors text-zinc-500">
+                <MoreVertical className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Tags row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {contact.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300"
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto p-6 pt-24 pb-6 space-y-6">
+              {loadingMessages && messages.length === 0 ? (
+                <div className="flex justify-center items-center h-full text-zinc-500">
+                  <Clock className="w-5 h-5 animate-spin mr-2" /> Loading history...
+                </div>
+              ) : (
+                messages.map((msg, idx) => {
+                  const isOutbound = msg.direction === "outbound";
+                  const showAvatar = !isOutbound && (idx === 0 || messages[idx - 1].direction !== "inbound");
+
+                  return (
+                    <div 
+                      key={msg.id} 
+                      className={`flex flex-col ${isOutbound ? "items-end" : "items-start"} w-full`}
+                    >
+                      <div className={`flex max-w-[75%] gap-2 ${isOutbound ? "flex-row-reverse" : "flex-row"}`}>
+                        {/* Avatar spacer for inbound */}
+                        {!isOutbound && (
+                          <div className="w-8 shrink-0 flex justify-end">
+                            {showAvatar && (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs shadow-sm mt-auto">
+                                {activeContact.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className={`flex flex-col ${isOutbound ? "items-end" : "items-start"}`}>
+                          <div 
+                            className={`px-4 py-2.5 rounded-2xl shadow-sm text-[15px] leading-relaxed ${
+                              isOutbound 
+                                ? "bg-indigo-600 text-white rounded-br-sm" 
+                                : "bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-bl-sm"
+                            }`}
+                          >
+                            {msg.text || (
+                              <span className="italic opacity-50">
+                                {msg.metadata?.isInteractive ? "[Interactive Button Reply]" : "[Media Message]"}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1 mt-1 px-1">
+                            <span className="text-[10px] text-zinc-400 font-medium">
+                              {format(new Date(msg.created_at), "HH:mm")}
+                            </span>
+                            {isOutbound && (
+                              <Check className="w-3 h-3 text-emerald-500" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Composer Input */}
+            <div className="p-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800">
+              <form onSubmit={handleSend} className="relative flex items-end gap-2 max-w-4xl mx-auto">
+                <textarea 
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend(e);
+                    }
+                  }}
+                  placeholder={`Reply to ${activeContact.name.split(' ')[0]}...`}
+                  className="w-full bg-zinc-100 dark:bg-zinc-800/80 border-none rounded-2xl pl-4 pr-12 py-3.5 text-[15px] focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none max-h-32 min-h-[52px]"
+                  rows={1}
+                />
+                <button 
+                  type="submit"
+                  disabled={!draft.trim() || sending}
+                  className="absolute right-2 bottom-2 w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white flex items-center justify-center transition-all shadow-sm shadow-indigo-500/30"
                 >
-                  #{tag}
-                </span>
-              ))}
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </form>
+              <div className="text-center mt-2">
+                <p className="text-[10px] text-zinc-400 font-medium">
+                  Press <kbd className="font-sans px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800">Enter</kbd> to send, <kbd className="font-sans px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800">Shift + Enter</kbd> for new line
+                </p>
+              </div>
             </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400">
+            <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center mb-4 ring-1 ring-indigo-500/20">
+              <MessageSquare className="w-8 h-8 text-indigo-500" />
+            </div>
+            <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Your Unified Inbox</h3>
+            <p className="text-sm mt-1">Select a contact to view their conversation history</p>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

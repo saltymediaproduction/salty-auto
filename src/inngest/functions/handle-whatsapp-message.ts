@@ -10,6 +10,7 @@ import {
 import { parseRuleConfig } from "@/lib/automation/rules";
 import { deductAutomationCost } from "@/lib/billing/wallet";
 import { getCachedActiveRules, getCachedSocialAccount } from "@/lib/cache/rules-cache";
+import { logMessageToCRM } from "@/lib/crm/messages";
 
 // Default Jasper's Market Interactive Button CTAs
 const JASPERS_DEFAULT_BUTTONS: WhatsAppReplyButton[] = [
@@ -108,6 +109,21 @@ export const handleWhatsAppMessage = inngest.createFunction(
 
       return data;
     });
+
+    // 4b. Log inbound message to CRM
+    if (contact?.id) {
+      await step.run("log-inbound-message", async () => {
+        await logMessageToCRM({
+          workspaceId: account.workspace_id,
+          contactId: contact.id,
+          platform: "whatsapp",
+          direction: "inbound",
+          messageId: messageId,
+          text: text,
+          metadata: { isInteractive, interactiveId },
+        });
+      });
+    }
 
     // 5. Fetch all active WhatsApp rules for this workspace (Edge-Cached)
     const rules = await step.run("fetch-active-rules", async () => {

@@ -12,6 +12,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "firebase": "^12.19.0",
     "inngest": "^3.31.0",
     "lucide-react": "^0.475.0",

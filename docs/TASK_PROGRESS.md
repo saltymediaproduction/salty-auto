@@ -94,3 +94,12 @@ This document tracks all active, queued, and completed tasks for the `salty-auto
 | 2026-09-14 | 8.4 | Synchronized Ecosystem Environment Variables | Aligned `.env.example` and `.env` across `salty-auto`, `salty-backend`, and `salty-frontend` (Ecosystem URLs, internal API secrets, and Cloudinary media assets). |
 | 2026-09-14 | 9.1-9.5 | GitHub Repository Setup & Initial Push | Initialized git repository in `salty-auto`, added README and docs, staged clean codebase without secrets, and pushed to `https://github.com/saltymediaproduction/salty-auto.git`. |
 | 2026-09-14 | 10.1-10.6 | OpenReply-Grade Features Integration | Multi-script & diacritic keyword matcher, Meta Button Templates, Follow-Gate verification, Tracked Link Shortener (`/r/[slug]`), Next Reel auto-binding, and live Smartphone preview in dashboard. Compiled 13/13 routes cleanly. |
+
+### Phase 11: Interakt-Clone Multi-Agent CRM (Phase 1: Internal Tool)
+- [x] 🟢 **Task 11.1**: Defined Two-Phase rollout strategy in `META_APP_SETUP_GUIDE.md` (Phase 1: Internal Sandbox, Phase 2: Client Embedded Signup).
+- [x] 🟢 **Task 11.2**: Created `auto_messages` DB table via Supabase MCP to store full WhatsApp chat history.
+- [x] 🟢 **Task 11.3**: Upgraded `handle-whatsapp-message.ts` (Inngest) to log inbound webhooks to `auto_messages` table.
+- [x] 🟢 **Task 11.4**: Built outbound `/api/whatsapp/send` API to dispatch text via Meta Graph API and log securely to CRM.
+- [x] 🟢 **Task 11.5**: Built dynamic Multi-Agent Live Chat Inbox at `src/app/(dashboard)/crm/page.tsx` with real-time fetching, active contact sidebar, and glassmorphism design.
+
+| 2026-09-24 | 11.1-11.5 | Built Interakt-Clone Live CRM (Phase 1) | Deployed `auto_messages` schema, upgraded webhooks, built outbound message API, and designed modern Live Chat Inbox UI (`/crm`). |
