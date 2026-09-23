@@ -149,7 +149,7 @@ export default function WhatsAppDashboardPage() {
   const [simFollowUpNotice, setSimFollowUpNotice] = useState(false);
 
   const webhookUrl = "https://auto.saltymediaproduction.com/api/webhooks/meta";
-  const verifyToken = "salty_auto_secure_verify_token";
+  const verifyToken = "salty_media_2026_secure_secret";
 
   useEffect(() => {
     fetchAccount();
