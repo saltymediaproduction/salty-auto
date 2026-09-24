@@ -29,6 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 import { parseRuleConfig, WhatsAppReplyButtonConfig } from "@/lib/automation/rules";
+import EmbeddedSignupButton from "@/components/EmbeddedSignupButton";
 
 interface SocialAccount {
   id: string;
@@ -234,6 +235,27 @@ export default function WhatsAppDashboardPage() {
       setWaError(err.message || "Failed to connect WhatsApp account");
     } finally {
       setWaSubmitting(false);
+    }
+  };
+
+  const handleMetaLoginSuccess = async (code: string, sessionInfo: any) => {
+    try {
+      setLoadingAccount(true);
+      const res = await fetch("/api/accounts/meta-exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, sessionInfo }),
+      });
+      if (res.ok) {
+        fetchAccount();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to exchange Meta access token.");
+      }
+    } catch (err) {
+      alert("Network error during token exchange.");
+    } finally {
+      setLoadingAccount(false);
     }
   };
 
@@ -523,13 +545,10 @@ export default function WhatsAppDashboardPage() {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setConnectModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs sm:text-sm transition-all shadow-md shadow-emerald-600/20"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Connect WhatsApp Business</span>
-              </button>
+              <EmbeddedSignupButton 
+                onSuccess={handleMetaLoginSuccess} 
+                onError={(err) => alert(err)} 
+              />
             )}
           </div>
         </div>

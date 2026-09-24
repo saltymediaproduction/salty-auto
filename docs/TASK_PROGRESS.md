@@ -103,3 +103,7 @@ This document tracks all active, queued, and completed tasks for the `salty-auto
 - [x] 🟢 **Task 11.5**: Built dynamic Multi-Agent Live Chat Inbox at `src/app/(dashboard)/crm/page.tsx` with real-time fetching, active contact sidebar, and glassmorphism design.
 
 | 2026-09-24 | 11.1-11.5 | Built Interakt-Clone Live CRM (Phase 1) | Deployed `auto_messages` schema, upgraded webhooks, built outbound message API, and designed modern Live Chat Inbox UI (`/crm`). |
+- [x] Created Embedded Signup implementation plan (docs/EMBEDDED_SIGNUP_PLAN.md)
+- [x] Implemented Frontend Embedded Signup Button
+- [x] Implemented Backend OAuth token exchange route
+- [x] Integrated Meta SDK into Dashboard
