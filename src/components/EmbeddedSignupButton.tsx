@@ -86,6 +86,26 @@ export default function EmbeddedSignupButton({ onSuccess, onError }: EmbeddedSig
   };
 
   useEffect(() => {
+    const initFB = () => {
+      if (!appId) {
+        console.error("Missing NEXT_PUBLIC_META_APP_ID in .env");
+        return;
+      }
+      FB.init({
+        appId,
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: 'v19.0',
+      });
+      setIsSdkLoaded(true);
+    };
+
+    if (typeof FB !== 'undefined') {
+      initFB();
+    } else {
+      (window as any).fbAsyncInit = initFB;
+    }
+
     const cb = (event: MessageEvent) => {
       if (!event.origin.endsWith('facebook.com')) return;
       try {
@@ -104,24 +124,13 @@ export default function EmbeddedSignupButton({ onSuccess, onError }: EmbeddedSig
       window.removeEventListener('message', cb);
       stopPolling();
     };
-  }, []);
+  }, [appId]);
 
   return (
     <>
       <Script 
         src="https://connect.facebook.net/en_US/sdk.js" 
-        strategy="lazyOnload" 
-        onLoad={() => {
-          if (typeof FB !== 'undefined') {
-            FB.init({
-              appId,
-              autoLogAppEvents: true,
-              xfbml: true,
-              version: 'v19.0',
-            });
-            setIsSdkLoaded(true);
-          }
-        }}
+        strategy="afterInteractive" 
       />
       <button
         onClick={launchWhatsAppSignup}
