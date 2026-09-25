@@ -153,6 +153,3 @@ export default function EmbeddedSignupButton({ onSuccess, onError, buttonText = 
     </>
   );
 }
-    </>
-  );
-}

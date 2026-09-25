@@ -93,26 +93,35 @@ export default function CRMDashboard() {
     setDraft("");
     setSending(true);
 
+    // Determine platform based on previous messages, falling back to contact fields
+    let targetPlatform: "whatsapp" | "instagram" = "whatsapp";
+    if (messages.length > 0) {
+      targetPlatform = messages[messages.length - 1].platform;
+    } else if (activeContact.instagram_username && !activeContact.whatsapp_phone) {
+      targetPlatform = "instagram";
+    }
+
     // Optimistic UI
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: tempId,
       direction: "outbound",
-      platform: "whatsapp",
+      platform: targetPlatform,
       text: textToSend,
       created_at: new Date().toISOString(),
       metadata: {}
     }]);
 
     try {
-      const res = await fetch("/api/whatsapp/send", {
+      const endpoint = targetPlatform === "whatsapp" ? "/api/whatsapp/send" : "/api/instagram/send";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId: activeContact.id, text: textToSend })
       });
 
       if (!res.ok) {
-        throw new Error("Failed to send");
+        throw new Error(`Failed to send via ${targetPlatform}`);
       }
       
       // Refresh to get real message ID from DB
