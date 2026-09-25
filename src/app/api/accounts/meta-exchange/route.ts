@@ -111,6 +111,14 @@ export async function POST(req: NextRequest) {
           if (igData.instagram_business_account) {
             const igAccountId = igData.instagram_business_account.id;
             
+            // Subscribe the Facebook Page to Webhooks programmatically (CRITICAL for IG automation)
+            if (page.access_token) {
+              const subRes = await fetch(`https://graph.facebook.com/v21.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,comments,feed,messages_reactions&access_token=${page.access_token}`, { method: 'POST' });
+              if (!subRes.ok) {
+                console.warn(`[Meta Exchange] Failed to subscribe page ${page.id} to webhooks:`, await subRes.text());
+              }
+            }
+
             // Fetch IG username
             const igUserRes = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}?fields=username&access_token=${accessToken}`);
             const igUserData = await igUserRes.json();
