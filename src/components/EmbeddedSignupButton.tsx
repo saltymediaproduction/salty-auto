@@ -25,7 +25,7 @@ export default function EmbeddedSignupButton({ onSuccess, onError }: EmbeddedSig
     }
   };
 
-  let sessionInfoOuter: any = null;
+  const sessionInfoOuter = useRef<any>(null);
 
   const clearEsState = () => {
     esInProgress.current = false;
@@ -36,7 +36,14 @@ export default function EmbeddedSignupButton({ onSuccess, onError }: EmbeddedSig
   const fbLoginCallback = (response: any) => {
     clearEsState();
     if (response?.authResponse?.code) {
-      onSuccess(response.authResponse.code, sessionInfoOuter);
+      let attempts = 0;
+      const checkSession = setInterval(() => {
+        if (sessionInfoOuter.current || attempts > 20) {
+          clearInterval(checkSession);
+          onSuccess(response.authResponse.code, sessionInfoOuter.current || {});
+        }
+        attempts++;
+      }, 100);
     } else {
       onError?.('User cancelled or Facebook login failed');
     }
@@ -114,7 +121,7 @@ export default function EmbeddedSignupButton({ onSuccess, onError }: EmbeddedSig
           if (data.data.current_step) {
             clearEsState();
           } else {
-            sessionInfoOuter = data;
+            sessionInfoOuter.current = data;
           }
         }
       } catch {}
