@@ -34,6 +34,7 @@ import {
   Layers,
 } from "lucide-react";
 import { parseRuleConfig, serializeRuleConfig, AutomationButton } from "@/lib/automation/rules";
+import EmbeddedSignupButton from "@/components/EmbeddedSignupButton";
 
 interface SocialAccount {
   id: string;
@@ -243,6 +244,27 @@ export default function InstagramSuitePage() {
     } else {
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
+
+  const handleMetaSuccess = async (code: string, sessionInfo: any) => {
+    try {
+      setIgSubmitting(true);
+      setIgError("");
+      const res = await fetch("/api/accounts/meta-exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, sessionInfo }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      
+      setConnectModalOpen(false);
+      fetchAccount(); // refresh the account
+    } catch (err: any) {
+      setIgError(err.message || "Failed to connect Meta accounts");
+    } finally {
+      setIgSubmitting(false);
     }
   };
 
@@ -1474,61 +1496,28 @@ export default function InstagramSuitePage() {
               </button>
             </div>
 
-            <form onSubmit={handleConnectInstagram} className="space-y-4">
+            <div className="space-y-4">
               {igError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{igError}</span>
                 </div>
               )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Instagram Handle / Account Name
-                </label>
-                <input
-                  type="text"
-                  value={igUsername}
-                  onChange={(e) => setIgUsername(e.target.value)}
-                  placeholder="e.g. @saltymediaproduction"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-pink-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Instagram Business Account ID
-                  <span className="text-pink-400 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={igAccountId}
-                  onChange={(e) => setIgAccountId(e.target.value)}
-                  placeholder="e.g. 17841400000000000"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white font-mono focus:outline-none focus:border-pink-500 transition-colors"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Found in Meta Developer App under <strong>Graph API Explorer</strong> or Connected Business Page.
+              
+              <div className="flex flex-col gap-4 py-4">
+                <p className="text-sm text-slate-300">
+                  Connect your Instagram Business account and Facebook Pages securely using Meta's Professional Suite.
                 </p>
+                <div className="flex justify-center mt-2">
+                  <EmbeddedSignupButton 
+                    onSuccess={handleMetaSuccess}
+                    onError={(err) => setIgError(err)}
+                    buttonText="Connect with Meta"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Permanent System User Token
-                  <span className="text-pink-400 ml-1">*</span>
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={igAccessToken}
-                  onChange={(e) => setIgAccessToken(e.target.value)}
-                  placeholder="EAAG... (Paste permanent System User token with instagram_manage_comments, instagram_manage_messages permissions)"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-pink-500 transition-colors"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex justify-end pt-2">
                 <button
                   type="button"
                   onClick={() => setConnectModalOpen(false)}
@@ -1536,22 +1525,8 @@ export default function InstagramSuitePage() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  disabled={igSubmitting}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 text-white font-semibold text-xs transition-all shadow-md shadow-pink-600/20 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {igSubmitting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Connecting...</span>
-                    </>
-                  ) : (
-                    <span>Save & Connect Instagram</span>
-                  )}
-                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

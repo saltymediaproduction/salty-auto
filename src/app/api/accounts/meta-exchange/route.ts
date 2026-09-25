@@ -73,32 +73,83 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Upsert into auto_social_accounts
-    const { data: account, error } = await (supabase
-      .from("auto_social_accounts") as any)
-      .upsert(
-        {
-          workspace_id: workspace.id,
-          platform: "whatsapp",
-          account_id: phoneId || "unknown_phone_id",
-          account_name: wabaId ? `WABA: ${wabaId}` : "WhatsApp Account",
-          access_token: accessToken,
-          status: "active",
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "workspace_id,platform,account_id",
-        }
-      )
-      .select("id, platform, account_id, account_name, status, created_at")
-      .single();
-
-    if (error) {
-      console.error("[Meta Exchange] Save account error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // 3. Upsert into auto_social_accounts (WhatsApp)
+    let whatsappAccount = null;
+    if (phoneId) {
+      const { data: waAcc, error: waErr } = await (supabase
+        .from("auto_social_accounts") as any)
+        .upsert(
+          {
+            workspace_id: workspace.id,
+            platform: "whatsapp",
+            account_id: phoneId,
+            account_name: wabaId ? `WABA: ${wabaId}` : "WhatsApp Account",
+            access_token: accessToken,
+            status: "active",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "workspace_id,platform,account_id" }
+        )
+        .select("id, platform, account_id, account_name, status, created_at")
+        .single();
+      
+      if (waErr) console.error("[Meta Exchange] Save WA error:", waErr);
+      else whatsappAccount = waAcc;
     }
 
-    return NextResponse.json({ success: true, account });
+    // 4. Fetch and Upsert Instagram Accounts
+    const igAccounts = [];
+    try {
+      const pagesRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${accessToken}`);
+      const pagesData = await pagesRes.json();
+      
+      if (pagesData.data && pagesData.data.length > 0) {
+        for (const page of pagesData.data) {
+          const igRes = await fetch(`https://graph.facebook.com/v21.0/${page.id}?fields=instagram_business_account,name&access_token=${accessToken}`);
+          const igData = await igRes.json();
+          
+          if (igData.instagram_business_account) {
+            const igAccountId = igData.instagram_business_account.id;
+            
+            // Fetch IG username
+            const igUserRes = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}?fields=username&access_token=${accessToken}`);
+            const igUserData = await igUserRes.json();
+            const igUsername = igUserData.username || page.name;
+
+            const { data: igAcc, error: igErr } = await (supabase
+              .from("auto_social_accounts") as any)
+              .upsert(
+                {
+                  workspace_id: workspace.id,
+                  platform: "instagram",
+                  account_id: igAccountId,
+                  account_name: `@${igUsername}`,
+                  access_token: accessToken,
+                  status: "active",
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "workspace_id,platform,account_id" }
+              )
+              .select("id, platform, account_id, account_name, status, created_at")
+              .single();
+              
+            if (!igErr && igAcc) {
+              igAccounts.push(igAcc);
+            }
+          }
+        }
+      }
+    } catch (igErr) {
+      console.error("[Meta Exchange] Failed to fetch Instagram accounts:", igErr);
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      accounts: {
+        whatsapp: whatsappAccount,
+        instagram: igAccounts
+      } 
+    });
   } catch (err) {
     console.error("[Meta Exchange] POST error:", err);
     return NextResponse.json({ error: "Failed to exchange Meta code" }, { status: 500 });

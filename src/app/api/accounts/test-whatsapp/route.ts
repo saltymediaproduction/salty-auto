@@ -94,6 +94,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 4. Upsert Contact & Log Message to CRM
+    try {
+      const { data: contact } = await supabase
+        .from("auto_contacts")
+        .select("id")
+        .eq("workspace_id", workspace.id)
+        .eq("whatsapp_phone", recipientPhone.trim())
+        .maybeSingle();
+
+      let contactId = contact?.id;
+
+      if (!contactId) {
+        const { data: newContact } = await (supabase.from("auto_contacts") as any)
+          .insert({
+            workspace_id: workspace.id,
+            name: recipientPhone.trim(),
+            whatsapp_phone: recipientPhone.trim(),
+            stage: "lead",
+            last_contacted_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        contactId = newContact?.id;
+      }
+
+      if (contactId && response.data?.message_id) {
+        const { logMessageToCRM } = await import("@/lib/crm/messages");
+        await logMessageToCRM({
+          workspaceId: workspace.id,
+          contactId: contactId,
+          platform: "whatsapp",
+          direction: "outbound",
+          messageId: response.data.message_id,
+          text: defaultTestMessage,
+          metadata: { is_test: true, interactive: !!sendInteractiveMenu },
+        });
+      }
+    } catch (crmErr) {
+      console.error("[Test WhatsApp API] Failed to log to CRM:", crmErr);
+    }
+
     return NextResponse.json({
       success: true,
       messageId: response.data?.message_id,
