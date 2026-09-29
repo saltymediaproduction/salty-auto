@@ -121,10 +121,7 @@ export default function InstagramSuitePage() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  // Webhook copy states
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
+
 
   // Form State
   const [name, setName] = useState("");
@@ -161,8 +158,7 @@ export default function InstagramSuitePage() {
     { title: "Get Instant Access", url: "https://saltymediaproduction.com" },
   ]);
 
-  const webhookUrl = "https://auto.saltymediaproduction.com/api/webhooks/meta";
-  const verifyToken = "salty_media_2026_secure_secret";
+
 
   useEffect(() => {
     fetchAccount();
@@ -233,19 +229,7 @@ export default function InstagramSuitePage() {
     }
   };
 
-  const handleCopy = (text: string, type: "url" | "token" | "id") => {
-    navigator.clipboard.writeText(text);
-    if (type === "url") {
-      setCopiedUrl(true);
-      setTimeout(() => setCopiedUrl(false), 2000);
-    } else if (type === "token") {
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
-    } else {
-      setCopiedId(true);
-      setTimeout(() => setCopiedId(false), 2000);
-    }
-  };
+
 
   const handleMetaSuccess = async (code: string, sessionInfo: any) => {
     try {
@@ -538,35 +522,7 @@ export default function InstagramSuitePage() {
           </div>
         </div>
 
-        {/* Compact Webhook URL & Verify Token info */}
-        <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-          <div className="flex flex-wrap items-center gap-4 font-mono text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 uppercase font-sans font-semibold text-[10px]">Callback URL:</span>
-              <span className="text-pink-300 truncate max-w-[220px] sm:max-w-none">{webhookUrl}</span>
-              <button onClick={() => handleCopy(webhookUrl, "url")} className="hover:text-white transition-colors">
-                {copiedUrl ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-500" />}
-              </button>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 uppercase font-sans font-semibold text-[10px]">Verify Token:</span>
-              <span className="text-pink-300">{verifyToken}</span>
-              <button onClick={() => handleCopy(verifyToken, "token")} className="hover:text-white transition-colors">
-                {copiedToken ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-500" />}
-              </button>
-            </div>
-          </div>
 
-          <a
-            href="https://developers.facebook.com/apps"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-pink-400 hover:text-pink-300 font-medium transition-colors"
-          >
-            <span>Meta App Dashboard</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
       </div>
 
       {/* ==================================================================== */}
