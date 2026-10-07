@@ -153,37 +153,27 @@ export const handleInstagramComment = inngest.createFunction(
       return selectedVariant;
     });
 
-    // 6. Send private Direct Message to commenter (Button Template, Follow-Gate, or Plain DM)
+    // 6. Send private Direct Message to commenter (Text Only as Templates are not supported for comment_id)
     const dmResult = await step.run("send-private-dm", async () => {
       const { rule, config } = matchingRule;
 
-      // Case A: Follow-Gated Campaign (Opening DM with Postback Button)
+      // Case A: Follow-Gated Campaign
       if (config.require_follow) {
         const promptText = config.follow_prompt_message
           .replace(/\{username\}/gi, fromUsername)
           .replace(/\{name\}/gi, fromUsername);
 
-        const res = await sendInstagramButtonTemplate({
-          instagramAccountId: accountId,
-          recipient: { comment_id: commentId },
-          messageText: promptText,
-          buttons: [
-            {
-              type: "postback",
-              title: config.follow_prompt_button_label || "I'm Following",
-              payload: JSON.stringify({
-                action: "CHECK_FOLLOW",
-                ruleId: rule.id,
-                workspaceId: account.workspace_id,
-                commentId,
-              }),
-            },
-          ],
-          accessToken: account.access_token,
-        });
+        const finalMessage = promptText + "\n\nReply 'YES' to get your exclusive link! 🚀";
+
+        const res = await sendInstagramPrivateDM(
+          accountId,
+          commentId,
+          finalMessage,
+          account.access_token
+        );
 
         if (!res.success) {
-          throw new Error(`Failed to send follow-gate button DM: ${res.error}`);
+          throw new Error(`Failed to send follow-gate text DM: ${res.error}`);
         }
 
         return res.data;
@@ -195,33 +185,23 @@ export const handleInstagramComment = inngest.createFunction(
           .replace(/\{username\}/gi, fromUsername)
           .replace(/\{name\}/gi, fromUsername);
 
-        const res = await sendInstagramButtonTemplate({
-          instagramAccountId: accountId,
-          recipient: { comment_id: commentId },
-          messageText: openingText,
-          buttons: [
-            {
-              type: "postback",
-              title: config.opening_dm_button_label || "Send me the link!",
-              payload: JSON.stringify({
-                action: config.require_follow ? "CHECK_FOLLOW" : "OPENING_OPTIN",
-                ruleId: rule.id,
-                workspaceId: account.workspace_id,
-                commentId,
-              }),
-            },
-          ],
-          accessToken: account.access_token,
-        });
+        const finalMessage = openingText + "\n\nReply 'YES' to get your link! 🚀";
+
+        const res = await sendInstagramPrivateDM(
+          accountId,
+          commentId,
+          finalMessage,
+          account.access_token
+        );
 
         if (!res.success) {
-          throw new Error(`Failed to send opening DM: ${res.error}`);
+          throw new Error(`Failed to send opening text DM: ${res.error}`);
         }
 
         return res.data;
       }
 
-      // Case B: Interactive Button Template Campaign (with Tracked Links)
+      // Case B: Interactive Button Template Campaign (Fallback to Text with Links)
       if (config.buttons && config.buttons.length > 0) {
         const messageText = config.dm_message
           .replace(/\{username\}/gi, fromUsername)
@@ -232,7 +212,7 @@ export const handleInstagramComment = inngest.createFunction(
 
         // Convert each button URL into a tracked short link
         const trackedButtons = await Promise.all(
-          config.buttons.slice(0, 3).map(async (btn) => {
+          config.buttons.slice(0, 3).map(async (btn: any) => {
             const slug = await getOrCreateTrackedLink({
               workspaceId: account.workspace_id,
               ruleId: rule.id,
@@ -241,23 +221,26 @@ export const handleInstagramComment = inngest.createFunction(
             });
 
             return {
-              type: "web_url" as const,
               title: btn.title,
               url: `${appUrl}/r/${slug}`,
             };
           })
         );
 
-        const res = await sendInstagramButtonTemplate({
-          instagramAccountId: accountId,
-          recipient: { comment_id: commentId },
-          messageText,
-          buttons: trackedButtons,
-          accessToken: account.access_token,
+        let finalMessage = messageText;
+        trackedButtons.forEach(btn => {
+           finalMessage += `\n\n${btn.title}:\n${btn.url}`;
         });
 
+        const res = await sendInstagramPrivateDM(
+          accountId,
+          commentId,
+          finalMessage,
+          account.access_token
+        );
+
         if (!res.success) {
-          throw new Error(`Failed to send button template DM: ${res.error}`);
+          throw new Error(`Failed to send button template as text DM: ${res.error}`);
         }
 
         return res.data;
