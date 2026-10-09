@@ -173,10 +173,10 @@ export const handleInstagramComment = inngest.createFunction(
         );
 
         if (!res.success) {
-          throw new Error(`Failed to send follow-gate text DM: ${res.error}`);
+          return { success: false, error: res.error };
         }
 
-        return res.data;
+        return { success: true, ...res.data };
       }
 
       // Case A2: 2-Step Opening DM Icebreaker Opt-In
@@ -195,10 +195,10 @@ export const handleInstagramComment = inngest.createFunction(
         );
 
         if (!res.success) {
-          throw new Error(`Failed to send opening text DM: ${res.error}`);
+          return { success: false, error: res.error };
         }
 
-        return res.data;
+        return { success: true, ...res.data };
       }
 
       // Case B: Interactive Button Template Campaign (Fallback to Text with Links)
@@ -240,10 +240,10 @@ export const handleInstagramComment = inngest.createFunction(
         );
 
         if (!res.success) {
-          throw new Error(`Failed to send button template as text DM: ${res.error}`);
+          return { success: false, error: res.error };
         }
 
-        return res.data;
+        return { success: true, ...res.data };
       }
 
       // Case C: Standard Text Direct Message
@@ -259,10 +259,10 @@ export const handleInstagramComment = inngest.createFunction(
       );
 
       if (!res.success) {
-        throw new Error(`Failed to send private DM: ${res.error}`);
+        return { success: false, error: res.error };
       }
 
-      return res.data;
+      return { success: true, ...res.data };
     });
 
     // 7. Upsert contact in Social CRM
@@ -274,7 +274,7 @@ export const handleInstagramComment = inngest.createFunction(
             workspace_id: account.workspace_id,
             name: fromUsername,
             instagram_username: fromUsername,
-            instagram_scoped_id: dmResult?.recipient_id || fromId || null,
+            instagram_scoped_id: (dmResult as any)?.recipient_id || fromId || null,
             stage: "lead",
             tags: ["instagram", "comment_lead"],
             metadata: {
@@ -282,7 +282,7 @@ export const handleInstagramComment = inngest.createFunction(
               last_media_id: mediaId,
               last_rule_matched: matchingRule.rule.id,
               matched_keyword: matchingRule.matchedKeyword,
-              dm_sent_at: new Date().toISOString(),
+              dm_sent_at: dmResult?.success ? new Date().toISOString() : null,
             },
             last_contacted_at: new Date().toISOString(),
           },
@@ -308,8 +308,8 @@ export const handleInstagramComment = inngest.createFunction(
         contact_id: contact?.id || null,
         source_id: commentId,
         platform: "instagram",
-        status: "success",
-        error_message: null,
+        status: dmResult?.success ? "success" : "failed",
+        error_message: dmResult?.success ? null : (dmResult as any)?.error,
       });
 
       // Deduct automation cost from real-time wallet ledger
@@ -326,7 +326,7 @@ export const handleInstagramComment = inngest.createFunction(
     });
 
     // 9. Scheduled Follow-Up DM (Optional, within 24-hour customer care window)
-    if (matchingRule.config.follow_up_enabled && matchingRule.config.follow_up_message && dmResult?.recipient_id) {
+    if (matchingRule.config.follow_up_enabled && matchingRule.config.follow_up_message && (dmResult as any)?.recipient_id) {
       const delayMinutes = matchingRule.config.follow_up_delay_minutes || 15;
       await step.sleep("wait-for-follow-up", `${delayMinutes}m`);
 
@@ -337,7 +337,7 @@ export const handleInstagramComment = inngest.createFunction(
 
         await sendInstagramDirectDM(
           accountId,
-          dmResult.recipient_id,
+          (dmResult as any).recipient_id,
           followUpCopy,
           account.access_token
         );
@@ -347,7 +347,7 @@ export const handleInstagramComment = inngest.createFunction(
     return {
       status: "success",
       ruleId: matchingRule.rule.id,
-      recipientId: dmResult?.recipient_id,
+      recipientId: (dmResult as any)?.recipient_id,
       publicReply: publicReplyText,
     };
   }
