@@ -153,6 +153,9 @@ export const handleInstagramComment = inngest.createFunction(
       return selectedVariant;
     });
 
+    // 5.1 Add 2 secs waiting time before sending the private DM
+    await step.sleep("wait-before-dm", "2s");
+
     // 6. Send private Direct Message to commenter (Text Only as Templates are not supported for comment_id)
     const dmResult = await step.run("send-private-dm", async () => {
       const { rule, config } = matchingRule;
